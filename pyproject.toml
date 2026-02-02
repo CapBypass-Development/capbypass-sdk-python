@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Official Python SDK for CapBypass CAPTCHA solving API"
 readme = "README.md"
 authors = [
-    {name = "CapBypass Development", email = "dev@capbypass.com"}
+    {name = "CapBypass Development", email = "dev@capbypass.dev"}
 ]
 license = {text = "MIT"}
 classifiers = [
