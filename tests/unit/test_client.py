@@ -269,23 +269,25 @@ def test_gateway_error_max_retries(client):
         client.getBalance()
 
 
-@responses.activate
-def test_network_error(client):
+def test_network_error(client, monkeypatch):
     """Test network connection error."""
-    responses.post(
-        "https://api.capbypass.pro/getBalance",
-        body=ConnectionError("Connection refused"),
-    )
+    import requests
 
-    # Add retries
-    for _ in range(3):
-        responses.post(
-            "https://api.capbypass.pro/getBalance",
-            body=ConnectionError("Connection refused"),
-        )
+    call_count = 0
+
+    def mock_post(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        raise requests.exceptions.ConnectionError("Connection refused")
+
+    # Mock the session.post to raise ConnectionError
+    monkeypatch.setattr(client.session, "post", mock_post)
 
     with pytest.raises(NetworkError):
         client.getBalance()
+
+    # Verify it tried max_retries + 1 times (initial + 3 retries)
+    assert call_count == 4
 
 
 def test_client_no_api_key():
