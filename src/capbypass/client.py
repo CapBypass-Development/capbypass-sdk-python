@@ -62,6 +62,85 @@ class CapBypass:
             "User-Agent": "capbypass-sdk-python/1.0.0",
         })
 
+    def _make_get_request(
+        self,
+        endpoint: str,
+        max_retries: int = 3,
+    ) -> Dict[str, Any]:
+        """Make HTTP GET request with retry logic.
+
+        Args:
+            endpoint: API endpoint path (e.g., "/pricing")
+            max_retries: Maximum number of retry attempts for network failures
+
+        Returns:
+            Parsed JSON response
+        """
+        url = f"{self.base_url}{endpoint}"
+        attempt = 0
+
+        while attempt <= max_retries:
+            try:
+                response = self.session.get(url, timeout=30)
+
+                if response.status_code in (502, 503, 504):
+                    if attempt < max_retries:
+                        backoff = min(10, 2 ** attempt) + random.uniform(0, 1)
+                        time.sleep(backoff)
+                        attempt += 1
+                        continue
+                    raise GatewayError(
+                        error_code="GATEWAY_ERROR",
+                        error_description=f"Gateway error: HTTP {response.status_code}",
+                    )
+
+                if response.status_code == 500:
+                    raise ServerError(
+                        error_code="SERVER_ERROR",
+                        error_description="Internal server error",
+                    )
+
+                try:
+                    return response.json()
+                except ValueError as e:
+                    raise ParseError(
+                        error_code="PARSE_ERROR",
+                        error_description=f"Malformed JSON response: {e}",
+                    )
+
+            except requests.exceptions.ConnectionError as e:
+                if attempt < max_retries:
+                    backoff = min(10, 2 ** attempt) + random.uniform(0, 1)
+                    time.sleep(backoff)
+                    attempt += 1
+                    continue
+                raise NetworkError(
+                    error_code="NETWORK_ERROR",
+                    error_description=f"Connection failed: {e}",
+                )
+
+            except requests.exceptions.Timeout as e:
+                if attempt < max_retries:
+                    backoff = min(10, 2 ** attempt) + random.uniform(0, 1)
+                    time.sleep(backoff)
+                    attempt += 1
+                    continue
+                raise NetworkError(
+                    error_code="NETWORK_ERROR",
+                    error_description=f"Request timeout: {e}",
+                )
+
+            except requests.exceptions.RequestException as e:
+                raise NetworkError(
+                    error_code="NETWORK_ERROR",
+                    error_description=f"Request failed: {e}",
+                )
+
+        raise NetworkError(
+            error_code="NETWORK_ERROR",
+            error_description="Max retries exceeded",
+        )
+
     def _make_request(
         self,
         endpoint: str,
@@ -187,6 +266,8 @@ class CapBypass:
             "ERROR_KEY_DOES_NOT_EXIST": AuthenticationError,
             "ERROR_ZERO_BALANCE": InsufficientBalanceError,
             "ERROR_INVALID_TASK_DATA": ValidationError,
+            "TASK_TYPE_COMING_SOON": ValidationError,
+            "TASK_TYPE_INACTIVE": ValidationError,
             "ERROR_TASK_NOT_FOUND": TaskNotFoundError,
             "ERROR_CAPTCHA_UNSOLVABLE": SolverError,
             "ERROR_TIMEOUT": CapBypassTimeoutError,
@@ -323,6 +404,22 @@ class CapBypass:
             attempt += 1
             poll_interval = min(5, (attempt + 1) // 2)
             time.sleep(poll_interval)
+
+    def getPricing(self) -> list:
+        """Get pricing for all task types.
+
+        This is a public endpoint and does not require authentication.
+
+        Returns:
+            List of dicts with "task_type" (str) and "user_cost" (float)
+
+        Example:
+            >>> pricing = client.getPricing()
+            >>> for item in pricing:
+            ...     print(f"{item['task_type']}: ${item['user_cost']}")
+        """
+        response = self._make_get_request("/pricing")
+        return response.get("pricing", [])
 
     def getBalance(self) -> float:
         """Get account balance.
