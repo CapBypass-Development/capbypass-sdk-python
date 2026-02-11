@@ -48,12 +48,14 @@ class CapBypass:
         self,
         api_key: Optional[str] = None,
         base_url: str = "https://api.capbypass.pro",
+        developer_key: Optional[str] = None,
     ):
         self.api_key = api_key or os.getenv("CAPBYPASS_API_KEY")
         if not self.api_key:
             raise ValueError(
                 "API key is required. Provide via constructor or CAPBYPASS_API_KEY env var."
             )
+        self.developer_key = developer_key or os.getenv("CAPBYPASS_DEVELOPER_KEY")
 
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
@@ -306,6 +308,8 @@ class CapBypass:
             "clientKey": self.api_key,
             "task": task,
         }
+        if self.developer_key:
+            payload["developerKey"] = self.developer_key
 
         response = self._make_request("/createTask", payload)
         self._handle_error_response(response)
