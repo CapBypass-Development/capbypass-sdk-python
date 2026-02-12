@@ -95,6 +95,25 @@ def test_create_task_invalid_data(client):
 
 
 @responses.activate
+def test_create_task_invalid_developer_key(client):
+    """Test task creation with invalid developer key."""
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={
+            "errorId": 1,
+            "errorCode": "ERROR_INVALID_DEVELOPER_KEY",
+            "errorDescription": "Invalid developer key",
+        },
+        status=200,
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        client.createTask({"type": "ReCaptchaV2TaskProxyLess"})
+
+    assert exc_info.value.error_code == "ERROR_INVALID_DEVELOPER_KEY"
+
+
+@responses.activate
 def test_get_task_result_processing(client):
     """Test getting task result in processing state."""
     responses.post(

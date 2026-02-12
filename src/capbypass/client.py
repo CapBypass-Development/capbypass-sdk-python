@@ -268,6 +268,7 @@ class CapBypass:
             "ERROR_KEY_DOES_NOT_EXIST": AuthenticationError,
             "ERROR_ZERO_BALANCE": InsufficientBalanceError,
             "ERROR_INVALID_TASK_DATA": ValidationError,
+            "ERROR_INVALID_DEVELOPER_KEY": ValidationError,
             "TASK_TYPE_COMING_SOON": ValidationError,
             "TASK_TYPE_INACTIVE": ValidationError,
             "ERROR_TASK_NOT_FOUND": TaskNotFoundError,
