@@ -2,33 +2,22 @@ name: Publish to PyPI
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     permissions:
-      id-token: write  # Required for trusted publishing
-      contents: write  # Required for GitHub release
+      id-token: write
+      contents: write
 
     steps:
     - uses: actions/checkout@v4
-
-    - name: Validate tag matches package version
-      run: |
-        TAG_VERSION="${GITHUB_REF_NAME#v}"
-        PACKAGE_VERSION=$(python - <<'PY'
-        import tomllib
-        from pathlib import Path
-        data = tomllib.loads(Path('pyproject.toml').read_text())
-        print(data['project']['version'])
-        PY
-        )
-        if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
-          echo "Tag version ($TAG_VERSION) does not match pyproject.toml version ($PACKAGE_VERSION)"
-          exit 1
-        fi
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -39,29 +28,48 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install build
-
-    - name: Run tests before publishing
-      run: |
         pip install -e ".[dev]"
-        pytest tests/unit/ -v
+
+    - name: Run tests
+      run: pytest tests/unit/ -v
+
+    - name: Bump patch version
+      run: |
+        CURRENT=$(python3 -c "
+        import tomllib
+        from pathlib import Path
+        data = tomllib.loads(Path('pyproject.toml').read_text())
+        print(data['project']['version'])
+        ")
+        IFS='.' read -r major minor patch <<< "$CURRENT"
+        NEW_VERSION="$major.$minor.$((patch + 1))"
+        sed -i "s/version = \"$CURRENT\"/version = \"$NEW_VERSION\"/" pyproject.toml
+        echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
     - name: Build package
-      run: |
-        python -m build
+      run: python -m build
 
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
 
+    - name: Commit version bump and create tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add pyproject.toml
+        git commit -m "v${{ env.VERSION }} [skip ci]"
+        git tag "v${{ env.VERSION }}"
+        git push && git push --tags
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: v${{ env.VERSION }}
         body: |
-          Release ${{ github.ref_name }}
+          Release v${{ env.VERSION }}
 
-          Install: `pip install capbypass-sdk==${{ github.ref_name }}`
-
-          See [CHANGELOG.md](CHANGELOG.md) for details.
+          Install: `pip install capbypass-sdk==${{ env.VERSION }}`
         draft: false
         prerelease: false
