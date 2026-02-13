@@ -39,7 +39,7 @@ jobs:
         pytest tests/unit/ -v --cov=capbypass --cov-report=term-missing
 
     - name: Run integration tests
-      if: secrets.CAPBYPASS_TEST_KEY != ''
+      if: ${{ secrets.CAPBYPASS_TEST_KEY != '' }}
       env:
         CAPBYPASS_TEST_KEY: ${{ secrets.CAPBYPASS_TEST_KEY }}
       run: |
