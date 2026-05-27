@@ -5,7 +5,7 @@
 [![Downloads](https://pepy.tech/badge/capbypass-sdk)](https://pepy.tech/project/capbypass-sdk)
 [![GitHub stars](https://img.shields.io/github/stars/CapBypass-Development/capbypass-sdk-python.svg)](https://github.com/CapBypass-Development/capbypass-sdk-python)
 
-Official Python SDK for CapBypass CAPTCHA solving API.
+Official Python SDK for the [CapBypass](https://capbypass.pro) CAPTCHA solving API.
 
 ## Features
 
@@ -103,7 +103,7 @@ except TimeoutError:
 ### 📚 Core Documentation
 - [Quick Start Guide](https://github.com/CapBypass-Development/capbypass-sdks/blob/main/docs/quickstart/python.md)
 - [Complete API Reference](https://github.com/CapBypass-Development/capbypass-sdks/blob/main/docs/api-reference/python-sdk.md)
-- [Full SDK Documentation](https://capbypass.dev/docs/sdks/python)
+- [Full SDK Documentation](https://capbypass.pro/docs/sdks/python)
 
 ### 🔧 Advanced Guides
 - [Proxy Configuration](https://github.com/CapBypass-Development/capbypass-sdks/blob/main/docs/guides/proxy-configuration.md) — HTTP, HTTPS, SOCKS5 proxy support with rotation strategies
@@ -152,6 +152,9 @@ MIT
 
 ## Support
 
-- Documentation: https://capbypass.dev/docs
+- [Website](https://capbypass.pro)
+- [Documentation](https://capbypass.pro/docs/sdks/python)
+- [Dashboard / Sign up](https://capbypass.pro/signup)
+- [Pricing](https://capbypass.pro/pricing)
+- [Discord](https://discord.gg/8WJsPKCGXN)
 - Issues: https://github.com/CapBypass-Development/capbypass-sdk-python/issues
-- Email: support@capbypass.dev
