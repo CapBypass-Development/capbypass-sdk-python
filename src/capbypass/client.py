@@ -263,17 +263,22 @@ class CapBypass:
         error_code = response.get("errorCode", "UNKNOWN_ERROR")
         error_description = response.get("errorDescription", "Unknown error")
 
-        # Map error codes to exception classes
+        # Map error codes to exception classes.
+        # Codes mirror the gateway contract in @solver-platform/shared errors.ts.
         error_map = {
             "ERROR_KEY_DOES_NOT_EXIST": AuthenticationError,
             "ERROR_ZERO_BALANCE": InsufficientBalanceError,
             "ERROR_INVALID_TASK_DATA": ValidationError,
             "ERROR_INVALID_DEVELOPER_KEY": ValidationError,
-            "TASK_TYPE_COMING_SOON": ValidationError,
-            "TASK_TYPE_INACTIVE": ValidationError,
+            "ERROR_PROXY_NOT_DEFINED": ValidationError,
+            "ERROR_WRONG_TASK_TYPE": ValidationError,
+            "ERROR_TASK_TYPE_COMING_SOON": ValidationError,
+            "ERROR_TASK_TYPE_INACTIVE": ValidationError,
             "ERROR_TASK_NOT_FOUND": TaskNotFoundError,
             "ERROR_CAPTCHA_UNSOLVABLE": SolverError,
             "ERROR_TIMEOUT": CapBypassTimeoutError,
+            # ERROR_TASK_QUEUE_FULL, ERROR_WORKER_CRASHED, ERROR_INTERNAL ->
+            # retryable internal failure (default below).
             "ERROR_INTERNAL": InternalError,
         }
 

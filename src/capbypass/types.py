@@ -22,3 +22,11 @@ class TaskType:
     # reCAPTCHA v3 Enterprise tasks
     RECAPTCHA_V3_ENTERPRISE_TASK = "ReCaptchaV3EnterpriseTask"
     RECAPTCHA_V3_ENTERPRISE_TASK_PROXYLESS = "ReCaptchaV3EnterpriseTaskProxyLess"
+
+    # GeeTest v3 + v4 tasks
+    GEETEST_TASK = "GeetestTask"
+    GEETEST_TASK_PROXYLESS = "GeetestTaskProxyLess"
+
+    # hCaptcha tasks
+    HCAPTCHA_TASK = "HCaptchaTask"
+    HCAPTCHA_TASK_PROXYLESS = "HCaptchaTaskProxyless"
