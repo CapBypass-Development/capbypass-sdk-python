@@ -38,8 +38,15 @@ jobs:
       run: |
         pytest tests/unit/ -v --cov=capbypass --cov-report=term-missing
 
+    - name: Detect integration secret
+      id: intsecret
+      env:
+        CAPBYPASS_TEST_KEY: ${{ secrets.CAPBYPASS_TEST_KEY }}
+      run: |
+        [ -n "$CAPBYPASS_TEST_KEY" ] && echo "available=true" >> "$GITHUB_OUTPUT" || echo "available=false" >> "$GITHUB_OUTPUT"
+
     - name: Run integration tests
-      if: ${{ secrets.CAPBYPASS_TEST_KEY != '' }}
+      if: steps.intsecret.outputs.available == 'true'
       env:
         CAPBYPASS_TEST_KEY: ${{ secrets.CAPBYPASS_TEST_KEY }}
       run: |
