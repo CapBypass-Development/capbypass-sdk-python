@@ -53,6 +53,10 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
+        # PEP 740 attestations use sigstore/OIDC which only works on
+        # GitHub-hosted runners. We publish from the self-hosted Coolify
+        # runner, so disable attestations (token auth still applies).
+        attestations: false
 
     - name: Commit version bump and create tag
       run: |
