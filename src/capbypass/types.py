@@ -30,3 +30,7 @@ class TaskType:
     # hCaptcha tasks
     HCAPTCHA_TASK = "HCaptchaTask"
     HCAPTCHA_TASK_PROXYLESS = "HCaptchaTaskProxyless"
+
+    # CaptchaFox tasks
+    CAPTCHA_FOX_TASK = "CaptchaFoxTask"
+    CAPTCHA_FOX_TASK_PROXYLESS = "CaptchaFoxTaskProxyLess"
