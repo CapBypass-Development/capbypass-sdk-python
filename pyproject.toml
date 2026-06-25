@@ -40,6 +40,7 @@ Repository = "https://github.com/CapBypass-Development/capbypass-sdk-python"
 dev = [
     "pytest>=7.4.0",
     "pytest-mock>=3.11.0",
+    "pytest-cov>=4.1.0",
     "responses>=0.23.0",
     "ruff>=0.1.0",
     "mypy>=1.5.0",
@@ -58,7 +59,10 @@ target-version = "py38"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]  # Line too long (handled by formatter)
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "N802",  # Public methods intentionally mirror the camelCase REST API (createTask, getTaskResult, getBalance, getPricing)
+]
 
 [tool.mypy]
 python_version = "3.8"

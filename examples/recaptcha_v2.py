@@ -1,6 +1,5 @@
 """Example: Solve reCAPTCHA v2 using CapBypass SDK."""
 
-import os
 from capbypass import CapBypass
 
 # Initialize client (reads from CAPBYPASS_API_KEY env var)

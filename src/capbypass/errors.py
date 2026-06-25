@@ -1,5 +1,7 @@
 """Exception classes for CapBypass SDK."""
 
+from typing import Optional
+
 
 class CapBypassError(Exception):
     """Base exception for all CapBypass errors.
@@ -10,7 +12,7 @@ class CapBypassError(Exception):
         error_id: Numeric error ID from API response
     """
 
-    def __init__(self, error_code: str = None, error_description: str = None, error_id: int = None):
+    def __init__(self, error_code: Optional[str] = None, error_description: Optional[str] = None, error_id: Optional[int] = None):
         self.error_code = error_code
         self.error_description = error_description or str(error_code)
         self.error_id = error_id

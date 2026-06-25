@@ -1,25 +1,27 @@
 """CapBypass API client."""
 
 import os
-import time
 import random
-from typing import Dict, Any, Optional
+import time
+from typing import Any, Dict, Optional, cast
 
 import requests
 
 from .errors import (
     AuthenticationError,
+    GatewayError,
     InsufficientBalanceError,
-    ValidationError,
-    TaskNotFoundError,
-    SolverError,
-    TimeoutError as CapBypassTimeoutError,
     InternalError,
     NetworkError,
-    GatewayError,
-    ServerError,
-    RateLimitError,
     ParseError,
+    RateLimitError,
+    ServerError,
+    SolverError,
+    TaskNotFoundError,
+    ValidationError,
+)
+from .errors import (
+    TimeoutError as CapBypassTimeoutError,
 )
 
 
@@ -103,7 +105,7 @@ class CapBypass:
                     )
 
                 try:
-                    return response.json()
+                    return cast(Dict[str, Any], response.json())
                 except ValueError as e:
                     raise ParseError(
                         error_code="PARSE_ERROR",
@@ -200,7 +202,7 @@ class CapBypass:
 
                 # Parse JSON response
                 try:
-                    return response.json()
+                    return cast(Dict[str, Any], response.json())
                 except ValueError as e:
                     raise ParseError(
                         error_code="PARSE_ERROR",
@@ -271,6 +273,8 @@ class CapBypass:
             "ERROR_INVALID_TASK_DATA": ValidationError,
             "ERROR_INVALID_DEVELOPER_KEY": ValidationError,
             "ERROR_PROXY_NOT_DEFINED": ValidationError,
+            "ERROR_PROXY_CONNECTION_FAILED": ValidationError,
+            "ERROR_PROXY_BANNED": ValidationError,
             "ERROR_WRONG_TASK_TYPE": ValidationError,
             "ERROR_TASK_TYPE_COMING_SOON": ValidationError,
             "ERROR_TASK_TYPE_INACTIVE": ValidationError,
@@ -320,7 +324,7 @@ class CapBypass:
         response = self._make_request("/createTask", payload)
         self._handle_error_response(response)
 
-        return response["taskId"]
+        return cast(str, response["taskId"])
 
     def getTaskResult(self, task_id: str) -> Dict[str, Any]:
         """Get result of a CAPTCHA solving task.
@@ -400,7 +404,7 @@ class CapBypass:
             status = result.get("status")
 
             if status == "ready":
-                return result.get("solution", {})
+                return cast(Dict[str, Any], result.get("solution", {}))
 
             if status == "failed":
                 error_description = result.get("errorDescription", "Task failed")
@@ -429,7 +433,7 @@ class CapBypass:
             ...     print(f"{item['task_type']}: ${item['user_cost']}")
         """
         response = self._make_get_request("/pricing")
-        return response.get("pricing", [])
+        return cast(list, response.get("pricing", []))
 
     def getBalance(self) -> float:
         """Get account balance.

@@ -5,11 +5,11 @@ Run with: pytest tests/integration/ -v
 """
 
 import os
+
 import pytest
 
 from capbypass import CapBypass
 from capbypass.errors import AuthenticationError, ValidationError
-
 
 # Skip all tests if CAPBYPASS_TEST_KEY not set
 pytestmark = pytest.mark.skipif(
