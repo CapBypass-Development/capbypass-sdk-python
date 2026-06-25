@@ -2,7 +2,6 @@
 
 import pytest
 import responses
-from responses import matchers
 
 from capbypass import CapBypass
 from capbypass.errors import (
