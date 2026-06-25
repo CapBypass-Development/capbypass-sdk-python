@@ -271,6 +271,8 @@ class CapBypass:
             "ERROR_INVALID_TASK_DATA": ValidationError,
             "ERROR_INVALID_DEVELOPER_KEY": ValidationError,
             "ERROR_PROXY_NOT_DEFINED": ValidationError,
+            "ERROR_PROXY_CONNECTION_FAILED": ValidationError,
+            "ERROR_PROXY_BANNED": ValidationError,
             "ERROR_WRONG_TASK_TYPE": ValidationError,
             "ERROR_TASK_TYPE_COMING_SOON": ValidationError,
             "ERROR_TASK_TYPE_INACTIVE": ValidationError,

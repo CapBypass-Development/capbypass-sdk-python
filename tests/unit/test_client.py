@@ -114,6 +114,44 @@ def test_create_task_invalid_developer_key(client):
 
 
 @responses.activate
+def test_create_task_proxy_connection_failed(client):
+    """Test task creation when the customer proxy could not be reached."""
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={
+            "errorId": 1,
+            "errorCode": "ERROR_PROXY_CONNECTION_FAILED",
+            "errorDescription": "Could not connect through proxy",
+        },
+        status=200,
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        client.createTask({"type": "ReCaptchaV2Task"})
+
+    assert exc_info.value.error_code == "ERROR_PROXY_CONNECTION_FAILED"
+
+
+@responses.activate
+def test_create_task_proxy_banned(client):
+    """Test task creation when the target blocked the customer proxy IP."""
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={
+            "errorId": 1,
+            "errorCode": "ERROR_PROXY_BANNED",
+            "errorDescription": "Proxy IP blocked by target",
+        },
+        status=200,
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        client.createTask({"type": "ReCaptchaV2Task"})
+
+    assert exc_info.value.error_code == "ERROR_PROXY_BANNED"
+
+
+@responses.activate
 def test_get_task_result_processing(client):
     """Test getting task result in processing state."""
     responses.post(
