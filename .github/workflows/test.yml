@@ -55,3 +55,20 @@ jobs:
     - name: Check coverage
       run: |
         pytest tests/unit/ --cov=capbypass --cov-report=term --cov-fail-under=80
+
+  # Single stable gate context for branch protection (the matrix job names like
+  # "test (3.11)" are version-specific and brittle to require directly).
+  tests-passed:
+    name: tests-passed
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on the test matrix
+        run: |
+          r="${{ needs.test.result }}"
+          if [ "$r" = "success" ] || [ "$r" = "skipped" ]; then
+            echo "tests-passed: $r"
+          else
+            echo "test matrix result: $r"; exit 1
+          fi
