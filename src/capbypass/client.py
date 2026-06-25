@@ -3,7 +3,7 @@
 import os
 import random
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import requests
 
@@ -105,7 +105,7 @@ class CapBypass:
                     )
 
                 try:
-                    return response.json()
+                    return cast(Dict[str, Any], response.json())
                 except ValueError as e:
                     raise ParseError(
                         error_code="PARSE_ERROR",
@@ -202,7 +202,7 @@ class CapBypass:
 
                 # Parse JSON response
                 try:
-                    return response.json()
+                    return cast(Dict[str, Any], response.json())
                 except ValueError as e:
                     raise ParseError(
                         error_code="PARSE_ERROR",
@@ -324,7 +324,7 @@ class CapBypass:
         response = self._make_request("/createTask", payload)
         self._handle_error_response(response)
 
-        return response["taskId"]
+        return cast(str, response["taskId"])
 
     def getTaskResult(self, task_id: str) -> Dict[str, Any]:
         """Get result of a CAPTCHA solving task.
@@ -404,7 +404,7 @@ class CapBypass:
             status = result.get("status")
 
             if status == "ready":
-                return result.get("solution", {})
+                return cast(Dict[str, Any], result.get("solution", {}))
 
             if status == "failed":
                 error_description = result.get("errorDescription", "Task failed")
@@ -433,7 +433,7 @@ class CapBypass:
             ...     print(f"{item['task_type']}: ${item['user_cost']}")
         """
         response = self._make_get_request("/pricing")
-        return response.get("pricing", [])
+        return cast(list, response.get("pricing", []))
 
     def getBalance(self) -> float:
         """Get account balance.
