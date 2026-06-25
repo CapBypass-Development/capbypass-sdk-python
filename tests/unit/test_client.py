@@ -8,7 +8,11 @@ from capbypass.errors import (
     AuthenticationError,
     GatewayError,
     InsufficientBalanceError,
+    InternalError,
     NetworkError,
+    ParseError,
+    RateLimitError,
+    ServerError,
     SolverError,
     TaskNotFoundError,
     TimeoutError,
@@ -364,3 +368,301 @@ def test_client_param_over_env(monkeypatch):
     monkeypatch.setenv("CAPBYPASS_API_KEY", "env-key")
     client = CapBypass(api_key="param-key")
     assert client.api_key == "param-key"
+
+
+@pytest.fixture
+def fast_retry(monkeypatch):
+    """Make retry backoff instant + deterministic so retry paths run fast."""
+    import capbypass.client as client_module
+
+    monkeypatch.setattr(client_module.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(client_module.random, "uniform", lambda _a, _b: 0.0)
+
+
+# ---------------------------------------------------------------------------
+# getPricing / _make_get_request (lines 83-143, 435-436)
+# ---------------------------------------------------------------------------
+
+
+@responses.activate
+def test_get_pricing_success(client):
+    """getPricing() returns the pricing list from the public GET endpoint."""
+    responses.get(
+        "https://api.capbypass.pro/pricing",
+        json={
+            "pricing": [
+                {"task_type": "ReCaptchaV2TaskProxyLess", "user_cost": 0.001},
+                {"task_type": "AntiAwsWafTask", "user_cost": 0.002},
+            ]
+        },
+        status=200,
+    )
+
+    pricing = client.getPricing()
+    assert isinstance(pricing, list)
+    assert pricing[0]["task_type"] == "ReCaptchaV2TaskProxyLess"
+    assert pricing[1]["user_cost"] == 0.002
+
+
+@responses.activate
+def test_get_pricing_missing_key_defaults_empty(client):
+    """getPricing() defaults to [] when the response has no 'pricing' key."""
+    responses.get(
+        "https://api.capbypass.pro/pricing",
+        json={"errorId": 0},
+        status=200,
+    )
+
+    assert client.getPricing() == []
+
+
+@responses.activate
+def test_get_request_gateway_retry_then_success(client, fast_retry):
+    """GET helper retries on 503 then succeeds (covers retry branch)."""
+    responses.get("https://api.capbypass.pro/pricing", status=503)
+    responses.get(
+        "https://api.capbypass.pro/pricing",
+        json={"pricing": [{"task_type": "x", "user_cost": 0.1}]},
+        status=200,
+    )
+
+    pricing = client.getPricing()
+    assert pricing[0]["task_type"] == "x"
+
+
+@responses.activate
+def test_get_request_gateway_max_retries(client, fast_retry):
+    """GET helper raises GatewayError after exhausting retries on 5xx gateway."""
+    for _ in range(4):
+        responses.get("https://api.capbypass.pro/pricing", status=502)
+
+    with pytest.raises(GatewayError):
+        client.getPricing()
+
+
+@responses.activate
+def test_get_request_server_error(client):
+    """GET helper raises ServerError (no retry) on HTTP 500."""
+    responses.get("https://api.capbypass.pro/pricing", status=500)
+
+    with pytest.raises(ServerError):
+        client.getPricing()
+
+
+@responses.activate
+def test_get_request_parse_error(client):
+    """GET helper raises ParseError on malformed JSON body."""
+    responses.get(
+        "https://api.capbypass.pro/pricing",
+        body="this-is-not-json",
+        status=200,
+        content_type="application/json",
+    )
+
+    with pytest.raises(ParseError):
+        client.getPricing()
+
+
+def test_get_request_connection_error_retries(client, monkeypatch, fast_retry):
+    """GET helper retries on ConnectionError, then raises NetworkError."""
+    import requests
+
+    call_count = 0
+
+    def mock_get(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        raise requests.exceptions.ConnectionError("refused")
+
+    monkeypatch.setattr(client.session, "get", mock_get)
+
+    with pytest.raises(NetworkError):
+        client.getPricing()
+
+    assert call_count == 4  # initial + 3 retries
+
+
+def test_get_request_timeout_retries(client, monkeypatch, fast_retry):
+    """GET helper retries on Timeout, then raises NetworkError."""
+    import requests
+
+    call_count = 0
+
+    def mock_get(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        raise requests.exceptions.Timeout("timed out")
+
+    monkeypatch.setattr(client.session, "get", mock_get)
+
+    with pytest.raises(NetworkError):
+        client.getPricing()
+
+    assert call_count == 4
+
+
+def test_get_request_generic_request_exception(client, monkeypatch):
+    """GET helper wraps a generic RequestException as NetworkError (no retry)."""
+    import requests
+
+    def mock_get(*args, **kwargs):
+        raise requests.exceptions.RequestException("boom")
+
+    monkeypatch.setattr(client.session, "get", mock_get)
+
+    with pytest.raises(NetworkError):
+        client.getPricing()
+
+
+# ---------------------------------------------------------------------------
+# _make_request POST error branches (lines 192, 198, 206-207, 224-241)
+# ---------------------------------------------------------------------------
+
+
+@responses.activate
+def test_post_server_error(client):
+    """POST helper raises ServerError on HTTP 500."""
+    responses.post("https://api.capbypass.pro/getBalance", status=500)
+
+    with pytest.raises(ServerError):
+        client.getBalance()
+
+
+@responses.activate
+def test_post_rate_limit(client):
+    """POST helper raises RateLimitError on HTTP 429."""
+    responses.post("https://api.capbypass.pro/getBalance", status=429)
+
+    with pytest.raises(RateLimitError):
+        client.getBalance()
+
+
+@responses.activate
+def test_post_parse_error(client):
+    """POST helper raises ParseError on malformed JSON body."""
+    responses.post(
+        "https://api.capbypass.pro/getBalance",
+        body="<<not json>>",
+        status=200,
+        content_type="application/json",
+    )
+
+    with pytest.raises(ParseError):
+        client.getBalance()
+
+
+def test_post_timeout_retries(client, monkeypatch, fast_retry):
+    """POST helper retries on Timeout, then raises NetworkError."""
+    import requests
+
+    call_count = 0
+
+    def mock_post(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        raise requests.exceptions.Timeout("timed out")
+
+    monkeypatch.setattr(client.session, "post", mock_post)
+
+    with pytest.raises(NetworkError):
+        client.getBalance()
+
+    assert call_count == 4
+
+
+def test_post_generic_request_exception(client, monkeypatch):
+    """POST helper wraps a generic RequestException as NetworkError (no retry)."""
+    import requests
+
+    def mock_post(*args, **kwargs):
+        raise requests.exceptions.RequestException("boom")
+
+    monkeypatch.setattr(client.session, "post", mock_post)
+
+    with pytest.raises(NetworkError):
+        client.getBalance()
+
+
+# ---------------------------------------------------------------------------
+# createTask developerKey payload branch (line 322)
+# ---------------------------------------------------------------------------
+
+
+@responses.activate
+def test_create_task_includes_developer_key():
+    """createTask() adds developerKey to the payload when configured."""
+    client = CapBypass(api_key="test-key", developer_key="dev-key-xyz")
+
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={"errorId": 0, "taskId": "task-with-devkey"},
+        status=200,
+    )
+
+    task_id = client.createTask({"type": "ReCaptchaV2TaskProxyLess"})
+
+    assert task_id == "task-with-devkey"
+    sent = responses.calls[0].request.body
+    assert b"developerKey" in sent
+    assert b"dev-key-xyz" in sent
+
+
+# ---------------------------------------------------------------------------
+# _handle_error_response additional branches
+# ---------------------------------------------------------------------------
+
+
+@responses.activate
+def test_create_task_proxy_not_defined(client):
+    """ERROR_PROXY_NOT_DEFINED maps to ValidationError."""
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={
+            "errorId": 1,
+            "errorCode": "ERROR_PROXY_NOT_DEFINED",
+            "errorDescription": "Proxy is required for this task type",
+        },
+        status=200,
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        client.createTask({"type": "ReCaptchaV2Task"})
+
+    assert exc_info.value.error_code == "ERROR_PROXY_NOT_DEFINED"
+
+
+@responses.activate
+def test_create_task_unknown_error_code_maps_internal(client):
+    """An unmapped error code falls back to InternalError with details preserved."""
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={
+            "errorId": 99,
+            "errorCode": "ERROR_TASK_QUEUE_FULL",
+            "errorDescription": "Queue is full",
+        },
+        status=200,
+    )
+
+    with pytest.raises(InternalError) as exc_info:
+        client.createTask({"type": "ReCaptchaV2TaskProxyLess"})
+
+    assert exc_info.value.error_code == "ERROR_TASK_QUEUE_FULL"
+    assert exc_info.value.error_id == 99
+    assert exc_info.value.error_description == "Queue is full"
+
+
+@responses.activate
+def test_error_response_with_missing_fields_defaults(client):
+    """An error with errorId set but no code/description uses safe defaults."""
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={"errorId": 5},
+        status=200,
+    )
+
+    with pytest.raises(InternalError) as exc_info:
+        client.createTask({"type": "ReCaptchaV2TaskProxyLess"})
+
+    assert exc_info.value.error_code == "UNKNOWN_ERROR"
+    assert exc_info.value.error_description == "Unknown error"
