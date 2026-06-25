@@ -11,12 +11,12 @@ Requirements:
 """
 
 import os
-from typing import Optional, Literal
+from typing import Literal, Optional
 from urllib.parse import urlparse
 
-from capbypass import CapBypass
-from playwright.sync_api import sync_playwright, Page
+from playwright.sync_api import sync_playwright
 
+from capbypass import CapBypass
 
 # Initialize client
 client = CapBypass(api_key=os.getenv('CAPBYPASS_API_KEY', ''))

@@ -6,13 +6,13 @@ import responses
 from capbypass import CapBypass
 from capbypass.errors import (
     AuthenticationError,
-    InsufficientBalanceError,
-    ValidationError,
-    TaskNotFoundError,
-    SolverError,
-    TimeoutError,
-    NetworkError,
     GatewayError,
+    InsufficientBalanceError,
+    NetworkError,
+    SolverError,
+    TaskNotFoundError,
+    TimeoutError,
+    ValidationError,
 )
 
 

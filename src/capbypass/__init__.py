@@ -5,19 +5,19 @@ Official Python SDK for CapBypass CAPTCHA solving API.
 
 from .client import CapBypass
 from .errors import (
-    CapBypassError,
     AuthenticationError,
+    CapBypassError,
+    GatewayError,
     InsufficientBalanceError,
-    ValidationError,
-    TaskNotFoundError,
-    SolverError,
-    TimeoutError,
     InternalError,
     NetworkError,
-    GatewayError,
-    ServerError,
-    RateLimitError,
     ParseError,
+    RateLimitError,
+    ServerError,
+    SolverError,
+    TaskNotFoundError,
+    TimeoutError,
+    ValidationError,
 )
 from .types import TaskType
 

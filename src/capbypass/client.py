@@ -1,25 +1,27 @@
 """CapBypass API client."""
 
 import os
-import time
 import random
-from typing import Dict, Any, Optional
+import time
+from typing import Any, Dict, Optional
 
 import requests
 
 from .errors import (
     AuthenticationError,
+    GatewayError,
     InsufficientBalanceError,
-    ValidationError,
-    TaskNotFoundError,
-    SolverError,
-    TimeoutError as CapBypassTimeoutError,
     InternalError,
     NetworkError,
-    GatewayError,
-    ServerError,
-    RateLimitError,
     ParseError,
+    RateLimitError,
+    ServerError,
+    SolverError,
+    TaskNotFoundError,
+    ValidationError,
+)
+from .errors import (
+    TimeoutError as CapBypassTimeoutError,
 )
 
 
