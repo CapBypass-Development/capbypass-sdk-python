@@ -24,6 +24,18 @@ from .errors import (
     TimeoutError as CapBypassTimeoutError,
 )
 
+# Seconds to wait before the first polls of a task, then _MAX_POLL_DELAY.
+# Stays inside the documented range: poll every 1 to 3 seconds, never faster.
+_POLL_DELAYS = (1, 1, 1, 2, 2)
+_MAX_POLL_DELAY = 3
+
+
+def _poll_delay(poll: int) -> int:
+    """Seconds to wait before the given poll (1-based): 1, 1, 1, 2, 2, then 3."""
+    if 1 <= poll <= len(_POLL_DELAYS):
+        return _POLL_DELAYS[poll - 1]
+    return _MAX_POLL_DELAY
+
 
 class CapBypass:
     """CapBypass API client for CAPTCHA solving.
@@ -361,6 +373,9 @@ class CapBypass:
     ) -> Dict[str, Any]:
         """Create task and poll until solved (auto-polling).
 
+        The first poll happens 1 s after the task is created, then every 1 s
+        for the first three polls, growing to 3 s (waits: 1, 1, 1, 2, 2, 3, 3, ...).
+
         Args:
             task: Task configuration dict
             timeout: Maximum time to wait in seconds (default: 120)
@@ -386,11 +401,14 @@ class CapBypass:
         # Create task
         task_id = self.createTask(task)
 
-        # Poll with adaptive intervals
         start_time = time.time()
-        attempt = 0
+        poll = 0
 
         while True:
+            # Wait before every poll, the first one included
+            poll += 1
+            time.sleep(_poll_delay(poll))
+
             # Check timeout (wall-clock time)
             elapsed = time.time() - start_time
             if elapsed > timeout:
@@ -412,12 +430,6 @@ class CapBypass:
                     error_code="SOLVER_ERROR",
                     error_description=error_description,
                 )
-
-            # Adaptive polling: min(5, ceil(attempt / 2)) seconds
-            # Attempts 1-2 → 1s, 3-4 → 2s, 5-6 → 3s, 7+ → 5s
-            attempt += 1
-            poll_interval = min(5, (attempt + 1) // 2)
-            time.sleep(poll_interval)
 
     def getPricing(self) -> list:
         """Get pricing for all task types.
