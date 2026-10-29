@@ -367,15 +367,36 @@ def test_solve_timeout_override_honoured(client, fake_clock):
     assert len(polls) == 4
 
 
+@pytest.fixture
+def one_second_polls(monkeypatch):
+    """Flatten the schedule to a 1 s wait before every poll, so the poll count equals the timeout."""
+    import capbypass.client as client_module
+
+    monkeypatch.setattr(client_module, "_POLL_DELAYS", ())
+    monkeypatch.setattr(client_module, "_MAX_POLL_DELAY", 1)
+
+
 @responses.activate
-def test_solve_default_timeout_is_120s(client, fake_clock):
-    """Default timeout is 120 s: 7 s ramp then 3 s waits, last poll at 118 s, 42 polls in all."""
+@pytest.mark.parametrize("timeout", [5, 119, 120])
+def test_solve_timeout_boundary_is_exact(client, fake_clock, one_second_polls, timeout):
+    """With 1 s waits, polls land at 1, 2, ... s: a poll at exactly `timeout` s still runs."""
+    polls = _mock_polls(fake_clock, ready_after=0)
+
+    with pytest.raises(TimeoutError):
+        client.solve({"type": "ReCaptchaV2TaskProxyLess"}, timeout=timeout)
+
+    assert len(polls) == timeout
+
+
+@responses.activate
+def test_solve_default_timeout_is_120s(client, fake_clock, one_second_polls):
+    """The default timeout is exactly 120 s: 120 one-second polls, not 118 or 119."""
     polls = _mock_polls(fake_clock, ready_after=0)
 
     with pytest.raises(TimeoutError):
         client.solve({"type": "ReCaptchaV2TaskProxyLess"})
 
-    assert len(polls) == 5 + 37
+    assert len(polls) == 120
 
 
 @responses.activate
