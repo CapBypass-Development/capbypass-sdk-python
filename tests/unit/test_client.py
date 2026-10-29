@@ -1,5 +1,7 @@
 """Unit tests for CapBypass client."""
 
+import importlib.metadata
+
 import pytest
 import responses
 
@@ -24,6 +26,15 @@ from capbypass.errors import (
 def client():
     """Create test client."""
     return CapBypass(api_key="test-key")
+
+
+def test_user_agent_carries_installed_version(client):
+    """The User-Agent reports the version of the installed distribution."""
+    import capbypass
+
+    installed = importlib.metadata.version("capbypass-sdk")
+    assert capbypass.__version__ == installed
+    assert client.session.headers["User-Agent"] == f"capbypass-sdk-python/{installed}"
 
 
 @responses.activate

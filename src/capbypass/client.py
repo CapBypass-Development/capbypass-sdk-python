@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, cast
 
 import requests
 
+from ._version import __version__
 from .errors import (
     AuthenticationError,
     GatewayError,
@@ -75,7 +76,7 @@ class CapBypass:
         self.session = requests.Session()
         self.session.headers.update({
             "Content-Type": "application/json",
-            "User-Agent": "capbypass-sdk-python/1.0.0",
+            "User-Agent": f"capbypass-sdk-python/{__version__}",
         })
 
     def _make_get_request(
