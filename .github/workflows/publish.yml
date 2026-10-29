@@ -3,6 +3,12 @@ name: Publish to PyPI
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Compute the version and build, but do not publish, tag or release'
+        type: boolean
+        default: false
 
 concurrency:
   group: publish
@@ -18,6 +24,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -33,37 +41,54 @@ jobs:
     - name: Run tests
       run: pytest tests/unit/ -v
 
-    - name: Bump patch version
+    # main is branch-protected, so the workflow never pushes to it. The version
+    # comes from the latest vX.Y.Z tag and is written into pyproject.toml only
+    # in the runner workspace, for the build. The tag is pushed after publishing.
+    - name: Compute next version
       run: |
-        CURRENT=$(python3 -c "
-        import tomllib
-        from pathlib import Path
-        data = tomllib.loads(Path('pyproject.toml').read_text())
-        print(data['project']['version'])
-        ")
-        IFS='.' read -r major minor patch <<< "$CURRENT"
+        LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; } | sed -n 1p)
+        if [ -z "$LATEST_TAG" ]; then
+          echo "::error::No vX.Y.Z tag found (is the checkout shallow, or the tags missing?); refusing to guess a version"
+          exit 1
+        fi
+        IFS='.' read -r major minor patch <<< "${LATEST_TAG#v}"
         NEW_VERSION="$major.$minor.$((patch + 1))"
-        sed -i "s/version = \"$CURRENT\"/version = \"$NEW_VERSION\"/" pyproject.toml
+        STATUS=$(curl -sS -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/capbypass-sdk/${NEW_VERSION}/json")
+        if [ "$STATUS" = "200" ]; then
+          echo "::error::capbypass-sdk ${NEW_VERSION} already exists on PyPI (latest tag is ${LATEST_TAG}); push the missing tag v${NEW_VERSION} or fix the tags"
+          exit 1
+        elif [ "$STATUS" != "404" ]; then
+          echo "::error::Unexpected HTTP ${STATUS} from PyPI while checking ${NEW_VERSION}"
+          exit 1
+        fi
+        sed -i -E "s/^version = \".*\"/version = \"${NEW_VERSION}\"/" pyproject.toml
+        WRITTEN=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+        if [ "$WRITTEN" != "$NEW_VERSION" ]; then
+          echo "::error::Failed to write ${NEW_VERSION} into pyproject.toml (found ${WRITTEN})"
+          exit 1
+        fi
+        echo "Latest tag ${LATEST_TAG}, next version ${NEW_VERSION}"
         echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
     - name: Build package
       run: python -m build
 
     - name: Publish to PyPI
+      if: ${{ !inputs.dry_run }}
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
 
-    - name: Commit version bump and create tag
+    - name: Create tag
+      if: ${{ !inputs.dry_run }}
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add pyproject.toml
-        git commit -m "v${{ env.VERSION }} [skip ci]"
         git tag "v${{ env.VERSION }}"
-        git push && git push --tags
+        git push origin "v${{ env.VERSION }}"
 
     - name: Create GitHub Release
+      if: ${{ !inputs.dry_run }}
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ env.VERSION }}
