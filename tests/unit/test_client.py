@@ -282,6 +282,123 @@ def test_solve_timeout(client):
         client.solve({"type": "ReCaptchaV2TaskProxyLess"}, timeout=3)
 
 
+@pytest.fixture
+def fake_clock(monkeypatch):
+    """Replace the client's time module: the clock moves only when the SDK sleeps.
+
+    ``events`` lists ("sleep", seconds) and ("poll",) in call order.
+    """
+    import types
+
+    import capbypass.client as client_module
+
+    state = types.SimpleNamespace(now=1000.0, events=[])
+
+    def fake_sleep(seconds):
+        state.events.append(("sleep", seconds))
+        state.now += seconds
+
+    monkeypatch.setattr(
+        client_module,
+        "time",
+        types.SimpleNamespace(time=lambda: state.now, sleep=fake_sleep),
+    )
+    return state
+
+
+def _mock_polls(clock, ready_after):
+    """Mock createTask and a getTaskResult that is ready on poll number ready_after (0 = never)."""
+    import json
+
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={"errorId": 0, "taskId": "test-task-id"},
+        status=200,
+    )
+    polls = []
+
+    def callback(_request):
+        polls.append(1)
+        clock.events.append(("poll",))
+        if ready_after and len(polls) >= ready_after:
+            body = {"errorId": 0, "status": "ready", "solution": {"token": "ok"}}
+        else:
+            body = {"errorId": 0, "status": "processing"}
+        return (200, {}, json.dumps(body))
+
+    responses.add_callback(
+        responses.POST,
+        "https://api.capbypass.pro/getTaskResult",
+        callback=callback,
+        content_type="application/json",
+    )
+    return polls
+
+
+def test_poll_delay_schedule():
+    """Waits before polls 1.. are 1, 1, 1, 2, 2, then 3 s."""
+    from capbypass.client import _poll_delay
+
+    assert [_poll_delay(n) for n in range(1, 10)] == [1, 1, 1, 2, 2, 3, 3, 3, 3]
+
+
+@responses.activate
+def test_solve_poll_schedule(client, fake_clock):
+    """solve() waits 1 s before the first poll, then follows the 1,1,1,2,2,3,... schedule."""
+    _mock_polls(fake_clock, ready_after=8)
+
+    solution = client.solve({"type": "ReCaptchaV2TaskProxyLess"})
+
+    assert solution == {"token": "ok"}
+    expected = []
+    for wait in [1, 1, 1, 2, 2, 3, 3, 3]:
+        expected += [("sleep", wait), ("poll",)]
+    assert fake_clock.events == expected
+
+
+@responses.activate
+def test_solve_timeout_override_honoured(client, fake_clock):
+    """An explicit timeout still bounds the wait: polls at 1, 2, 3 and 5 s, then TimeoutError."""
+    polls = _mock_polls(fake_clock, ready_after=0)
+
+    with pytest.raises(TimeoutError):
+        client.solve({"type": "ReCaptchaV2TaskProxyLess"}, timeout=5)
+
+    assert len(polls) == 4
+
+
+@pytest.fixture
+def one_second_polls(monkeypatch):
+    """Flatten the schedule to a 1 s wait before every poll, so the poll count equals the timeout."""
+    import capbypass.client as client_module
+
+    monkeypatch.setattr(client_module, "_POLL_DELAYS", ())
+    monkeypatch.setattr(client_module, "_MAX_POLL_DELAY", 1)
+
+
+@responses.activate
+@pytest.mark.parametrize("timeout", [5, 119, 120])
+def test_solve_timeout_boundary_is_exact(client, fake_clock, one_second_polls, timeout):
+    """With 1 s waits, polls land at 1, 2, ... s: a poll at exactly `timeout` s still runs."""
+    polls = _mock_polls(fake_clock, ready_after=0)
+
+    with pytest.raises(TimeoutError):
+        client.solve({"type": "ReCaptchaV2TaskProxyLess"}, timeout=timeout)
+
+    assert len(polls) == timeout
+
+
+@responses.activate
+def test_solve_default_timeout_is_120s(client, fake_clock, one_second_polls):
+    """The default timeout is exactly 120 s: 120 one-second polls, not 118 or 119."""
+    polls = _mock_polls(fake_clock, ready_after=0)
+
+    with pytest.raises(TimeoutError):
+        client.solve({"type": "ReCaptchaV2TaskProxyLess"})
+
+    assert len(polls) == 120
+
+
 @responses.activate
 def test_get_balance_success(client):
     """Test getBalance() success."""

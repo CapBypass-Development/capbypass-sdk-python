@@ -9,7 +9,7 @@ Official Python SDK for the [CapBypass](https://capbypass.pro) CAPTCHA solving A
 
 ## Features
 
-- ✨ Simple `solve()` method with auto-polling
+- ✨ Simple `solve()` method with auto-polling (first poll after 1 s, then every 1-3 s)
 - 🎯 Advanced `createTask()` + `getTaskResult()` for granular control
 - 💰 `getBalance()` to check account balance
 - 🔄 Automatic retry logic for network failures
@@ -61,14 +61,22 @@ task_id = client.createTask({
     "websiteKey": "site-key"
 })
 
-# Poll for result
+# Poll for result. getTaskResult does not wait by itself: wait 1 second after
+# createTask, then 1 to 3 seconds between calls (not faster), until the task is
+# ready or failed, and give up after your own deadline.
 import time
+deadline = time.monotonic() + 120
+time.sleep(1)
 while True:
     result = client.getTaskResult(task_id)
     if result["status"] == "ready":
         print(result["solution"])
         break
-    time.sleep(5)
+    if result["status"] == "failed":
+        raise RuntimeError(result.get("errorDescription", "Task failed"))
+    if time.monotonic() > deadline:
+        raise TimeoutError("Task not ready in time")
+    time.sleep(2)
 ```
 
 ### Check Balance
