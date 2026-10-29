@@ -3,6 +3,7 @@
 Official Python SDK for CapBypass CAPTCHA solving API.
 """
 
+from ._version import __version__
 from .client import CapBypass
 from .errors import (
     AuthenticationError,
@@ -21,8 +22,8 @@ from .errors import (
 )
 from .types import TaskType
 
-__version__ = "1.0.0"
 __all__ = [
+    "__version__",
     "CapBypass",
     "CapBypassError",
     "AuthenticationError",
