@@ -794,3 +794,101 @@ def test_error_response_with_missing_fields_defaults(client):
 
     assert exc_info.value.error_code == "UNKNOWN_ERROR"
     assert exc_info.value.error_description == "Unknown error"
+
+
+def test_turnstile_task_type_constants():
+    """The TaskType constants carry the gateway's Turnstile type strings."""
+    from capbypass.types import TaskType
+
+    assert TaskType.TURNSTILE_TASK == "TurnstileTask"
+    assert TaskType.TURNSTILE_TASK_PROXYLESS == "TurnstileTaskProxyLess"
+
+
+def _mock_turnstile_ready():
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={"errorId": 0, "taskId": "ts-task"},
+        status=200,
+    )
+    responses.post(
+        "https://api.capbypass.pro/getTaskResult",
+        json={
+            "errorId": 0,
+            "status": "ready",
+            "solution": {"token": "0.turnstile-token", "timing": {"solveMs": 6120}},
+        },
+        status=200,
+    )
+
+
+@responses.activate
+def test_solve_turnstile_proxyless(client):
+    """TurnstileTaskProxyLess: body is sent as given, solution carries token and timing."""
+    import json
+
+    from capbypass.types import TaskType
+
+    _mock_turnstile_ready()
+
+    solution = client.solve({
+        "type": TaskType.TURNSTILE_TASK_PROXYLESS,
+        "websiteURL": "https://example.com/login",
+        "websiteKey": "0x4AAAAAAAxxxxxxxxxxxxxx",
+    })
+
+    assert solution["token"] == "0.turnstile-token"
+    assert solution["timing"]["solveMs"] == 6120
+    body = json.loads(responses.calls[0].request.body)
+    assert body["clientKey"] == "test-key"
+    assert body["task"] == {
+        "type": "TurnstileTaskProxyLess",
+        "websiteURL": "https://example.com/login",
+        "websiteKey": "0x4AAAAAAAxxxxxxxxxxxxxx",
+    }
+
+
+@responses.activate
+def test_solve_turnstile_with_proxy_action_cdata(client):
+    """TurnstileTask: proxy, action and cData reach the gateway unchanged."""
+    import json
+
+    _mock_turnstile_ready()
+
+    solution = client.solve({
+        "type": "TurnstileTask",
+        "websiteURL": "https://example.com/login",
+        "websiteKey": "0x4AAAAAAAxxxxxxxxxxxxxx",
+        "action": "login",
+        "cData": "session-42",
+        "proxy": "http://user:pass@host:8080",
+    })
+
+    assert solution["token"] == "0.turnstile-token"
+    task = json.loads(responses.calls[0].request.body)["task"]
+    assert task["type"] == "TurnstileTask"
+    assert task["action"] == "login"
+    assert task["cData"] == "session-42"
+    assert task["proxy"] == "http://user:pass@host:8080"
+
+
+@pytest.mark.parametrize(
+    "code,exc",
+    [
+        ("ERROR_INVALID_TASK_DATA", ValidationError),
+        ("ERROR_TASK_TYPE_INACTIVE", ValidationError),
+        ("ERROR_PROXY_BANNED", ValidationError),
+        ("ERROR_PROXY_CONNECTION_FAILED", ValidationError),
+        ("ERROR_TASK_QUEUE_FULL", InternalError),
+    ],
+)
+@responses.activate
+def test_turnstile_gateway_errors(client, code, exc):
+    """Gateway rejections of a Turnstile task map to the SDK's typed errors."""
+    responses.post(
+        "https://api.capbypass.pro/createTask",
+        json={"errorId": 1, "errorCode": code, "errorDescription": "x"},
+        status=200,
+    )
+
+    with pytest.raises(exc):
+        client.createTask({"type": "TurnstileTask"})

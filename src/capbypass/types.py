@@ -34,3 +34,7 @@ class TaskType:
     # CaptchaFox tasks
     CAPTCHA_FOX_TASK = "CaptchaFoxTask"
     CAPTCHA_FOX_TASK_PROXYLESS = "CaptchaFoxTaskProxyLess"
+
+    # Cloudflare Turnstile tasks
+    TURNSTILE_TASK = "TurnstileTask"
+    TURNSTILE_TASK_PROXYLESS = "TurnstileTaskProxyLess"
