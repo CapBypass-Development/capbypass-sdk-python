@@ -23,6 +23,7 @@ Official Python SDK for the [CapBypass](https://capbypass.pro) CAPTCHA solving A
 - reCAPTCHA v3
 - reCAPTCHA v3 Enterprise
 - AWS WAF CAPTCHA
+- Cloudflare Turnstile
 
 ## Installation
 
@@ -86,6 +87,32 @@ balance = client.getBalance()
 print(f"Balance: ${balance:.4f}")
 ```
 
+### Cloudflare Turnstile
+
+`websiteURL` and `websiteKey` are required. `action` (1 to 32 characters of `A-Z a-z 0-9 _ -`) and `cData` (1 to 255 characters of the same set) are optional and replace the page's `data-action` / `data-cdata`. The solution holds `token` (the `cf-turnstile-response` value) and `timing.solveMs`; Turnstile returns no `userAgent`.
+
+```python
+solution = client.solve({
+    "type": "TurnstileTaskProxyLess",
+    "websiteURL": "https://example.com/login",
+    "websiteKey": "0x4AAAAAAAxxxxxxxxxxxxxx",
+})
+token = solution["token"]
+```
+
+With your own proxy (`TurnstileTask` requires one): a single `http(s)` URL in the `proxy` field, no `socks`:
+
+```python
+solution = client.solve({
+    "type": "TurnstileTask",
+    "websiteURL": "https://example.com/login",
+    "websiteKey": "0x4AAAAAAAxxxxxxxxxxxxxx",
+    "action": "login",
+    "cData": "session-42",
+    "proxy": "http://user:pass@host:port",
+})
+```
+
 ### Error Handling
 
 ```python
@@ -130,6 +157,7 @@ See [examples/](examples/) directory for complete runnable examples:
 - [recaptcha_v2.py](examples/recaptcha_v2.py) - reCAPTCHA v2 solving
 - [recaptcha_v3.py](examples/recaptcha_v3.py) - reCAPTCHA v3 solving
 - [aws_waf.py](examples/aws_waf.py) - AWS WAF CAPTCHA solving
+- [turnstile.py](examples/turnstile.py) - Cloudflare Turnstile solving
 
 ### Advanced Examples
 Full integration examples in the [documentation](https://github.com/CapBypass-Development/capbypass-sdks/tree/main/docs/examples):
