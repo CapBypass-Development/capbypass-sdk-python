@@ -113,6 +113,27 @@ solution = client.solve({
 })
 ```
 
+### With Proxy
+
+Every task type with a proxy (the non-ProxyLess variants) takes it as one string in the `proxy` field. The SDK sends it unchanged; the API validates it when the task is created, before anything is billed. Supported protocols: `http`, `https`, `socks4`, `socks5` (`http` when omitted). Some task types accept `http(s)` proxies only, as their page says (Turnstile and Cloudflare, for example).
+
+| Form | Pattern |
+|------|---------|
+| URL | `protocol://user:pass@host:port` |
+| Colon | `host:port:user:pass` or `host:port` |
+| Protocol + colon | `protocol:host:port:user:pass` or `protocol:host:port` |
+
+Send only the proxy itself: no spaces or other text (a whole line copied from a proxy list is refused), a port from 1 to 65535, and percent-encode any `@`, `/`, `:`, `#` or `?` in the user or password of the URL form. The host must be public. A malformed proxy is refused with `ERROR_PROXY_FORMAT` (`ValidationError`) and an internal or reserved address with `ERROR_BLOCKED_TARGET` (`ValidationError`). See [Proxy Format](https://capbypass.pro/docs/api-reference#proxy-format) in the API reference.
+
+```python
+solution = client.solve({
+    "type": "ReCaptchaV2Task",
+    "websiteURL": "https://example.com",
+    "websiteKey": "6Le-wvkSAAAAAPBMRTvw0Q4Muexq9bi0DJwx_mJ-",
+    "proxy": "http://username:password@proxy.example.com:8080",
+})
+```
+
 ### Error Handling
 
 ```python
