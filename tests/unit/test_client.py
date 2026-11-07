@@ -876,7 +876,9 @@ def test_solve_turnstile_with_proxy_action_cdata(client):
     [
         ("ERROR_INVALID_TASK_DATA", ValidationError),
         ("ERROR_TASK_TYPE_INACTIVE", ValidationError),
+        ("ERROR_PROXY_FORMAT", ValidationError),
         ("ERROR_PROXY_BANNED", ValidationError),
+        ("ERROR_BLOCKED_TARGET", ValidationError),
         ("ERROR_PROXY_CONNECTION_FAILED", ValidationError),
         ("ERROR_TASK_QUEUE_FULL", InternalError),
     ],
